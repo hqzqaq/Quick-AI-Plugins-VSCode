@@ -223,6 +223,7 @@ export class ConfigManager {
      */
     public async deleteEditor(editorId: string): Promise<boolean> {
         try {
+            this.logInfo(`要删除的编辑器id: ${editorId}`);
             const editors = this.getEditors();
             const editorIndex = editors.findIndex(editor => editor.id === editorId);
             

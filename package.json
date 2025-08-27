@@ -13,7 +13,6 @@
   "activationEvents": [
     "onStartupFinished",
     "onCommand:quickai.openEditorManager",
-    "onCommand:quickai.openKeyboardSettings",
     "onCommand:quickai.jumpToExternalEditor",
     "onCommand:quickai.triggerWithShortcut"
   ],
@@ -23,10 +22,6 @@
       {
         "command": "quickai.openEditorManager",
         "title": "QuickAI: 管理外部编辑器"
-      },
-      {
-        "command": "quickai.openKeyboardSettings",
-        "title": "QuickAI: 配置快捷键"
       },
       {
         "command": "quickai.jumpToExternalEditor",

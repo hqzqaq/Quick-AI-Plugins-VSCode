@@ -74,7 +74,9 @@ export class WebViewManager {
                         result = await this.configManager.updateEditor(message.data.editorId, message.data.updates);
                         break;
                     case 'deleteEditor':
-                        result = await this.configManager.deleteEditor(message.data.editorId);
+                        await this.configManager.deleteEditor(message.data.editorId);
+                        this.logger.info(`编辑器配置已删除: ${message.data.editorId}`);
+                        result = { success: true };
                         break;
                     case 'setDefaultEditor':
                         result = await this.configManager.setDefaultEditor(message.data.editorId);
@@ -235,6 +237,9 @@ export class WebViewManager {
         .btn:hover { background: var(--vscode-button-hoverBackground); }
         .btn-danger { background: var(--vscode-errorForeground); color: white; }
         .btn-danger:hover { background: var(--vscode-errorForeground); opacity: 0.8; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: var(--vscode-editor-background); margin: 15% auto; padding: 20px; border: 1px solid var(--vscode-widget-border); border-radius: 6px; width: 300px; text-align: center; }
+        .modal-buttons { margin-top: 20px; display: flex; gap: 10px; justify-content: center; }
         .editor-item { border: 1px solid var(--vscode-widget-border); padding: 16px; margin: 12px 0; border-radius: 6px; }
         .editor-edit { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--vscode-widget-border); }
         .form-group { margin: 12px 0; }
@@ -248,28 +253,39 @@ export class WebViewManager {
 <body>
     <h1>📝 编辑器管理</h1>
     
-    <div class="add-editor-form">
+    <div class=\"add-editor-form\">
         <h2>添加新编辑器</h2>
-        <div class="form-group">
+        <div class=\"form-group\">
             <label>编辑器名称:</label>
-            <input type="text" id="editorName" class="form-input" placeholder="例如: IntelliJ IDEA">
+            <input type=\"text\" id=\"editorName\" class=\"form-input\" placeholder=\"例如: IntelliJ IDEA\">
         </div>
-        <div class="form-group">
+        <div class=\"form-group\">
             <label>编辑器路径:</label>
-            <div class="path-group">
-                <input type="text" id="editorPath" class="form-input" placeholder="编辑器可执行文件路径">
-                <button class="btn" onclick="selectPath()">浏览</button>
+            <div class=\"path-group\">
+                <input type=\"text\" id=\"editorPath\" class=\"form-input\" placeholder=\"编辑器可执行文件路径\">
+                <button class=\"btn\" data-action=\"selectPath\">浏览</button>
             </div>
         </div>
-        <div class="form-group">
-            <label><input type="checkbox" id="isDefault"> 设为默认编辑器</label>
+        <div class=\"form-group\">
+            <label><input type=\"checkbox\" id=\"isDefault\"> 设为默认编辑器</label>
         </div>
-        <button class="btn" onclick="addEditor()">添加编辑器</button>
+        <button class=\"btn\" data-action=\"addEditor\">添加编辑器</button>
     </div>
 
-    <div id="editorList">
+    <div id=\"editorList\">
         <h2>已配置的编辑器</h2>
-        <div id="editorContainer">加载中...</div>
+        <div id=\"editorContainer\">加载中...</div>
+    </div>
+
+    <!-- 自定义确认对话框 -->
+    <div id=\"confirmModal\" class=\"modal\">
+        <div class=\"modal-content\">
+            <p id=\"confirmMessage\">确定要删除这个编辑器吗？</p>
+            <div class=\"modal-buttons\">
+                <button class=\"btn btn-danger\" id=\"confirmYes\">确定</button>
+                <button class=\"btn\" id=\"confirmNo\">取消</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -300,6 +316,47 @@ export class WebViewManager {
             }
         });
 
+        // 自定义确认对话框函数
+        function showConfirm(message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirmModal');
+                const messageElement = document.getElementById('confirmMessage');
+                const yesButton = document.getElementById('confirmYes');
+                const noButton = document.getElementById('confirmNo');
+                
+                messageElement.textContent = message;
+                modal.style.display = 'block';
+                
+                function cleanup() {
+                    modal.style.display = 'none';
+                    yesButton.removeEventListener('click', onYes);
+                    noButton.removeEventListener('click', onNo);
+                    modal.removeEventListener('click', onModalClick);
+                }
+                
+                function onYes() {
+                    cleanup();
+                    resolve(true);
+                }
+                
+                function onNo() {
+                    cleanup();
+                    resolve(false);
+                }
+                
+                function onModalClick(event) {
+                    if (event.target === modal) {
+                        cleanup();
+                        resolve(false);
+                    }
+                }
+                
+                yesButton.addEventListener('click', onYes);
+                noButton.addEventListener('click', onNo);
+                modal.addEventListener('click', onModalClick);
+            });
+        }
+
         async function loadEditors() {
             try {
                 const editors = await sendMessage('getEditors');
@@ -311,38 +368,40 @@ export class WebViewManager {
                 }
 
                 container.innerHTML = editors.map(editor => \`
-                    <div class="editor-item" id="editor-\${editor.id}">
-                        <div class="editor-display" id="display-\${editor.id}">
+                    <div class=\"editor-item\" id=\"editor-\${editor.id}\" data-editor-id=\"\${editor.id}\">
+                        <div class=\"editor-display\" id=\"display-\${editor.id}\">
                             <h3>\${editor.name} \${editor.isDefault ? '(默认)' : ''}</h3>
                             <p>路径: \${editor.path}</p>
-                            <div class="button-group">
-                                <button class="btn" onclick="editEditor('\${editor.id}')">编辑</button>
-                                <button class="btn" onclick="testEditor('\${editor.id}')">测试</button>
-                                \${!editor.isDefault ? \`<button class="btn" onclick="setDefault('\${editor.id}')">设为默认</button>\` : ''}
-                                <button class="btn btn-danger" onclick="deleteEditor('\${editor.id}')">删除</button>
+                            <div class=\"button-group\">
+                                <button class=\"btn\" data-action=\"editEditor\">编辑</button>
+                                <button class=\"btn\" data-action=\"testEditor\">测试</button>
+                                \${!editor.isDefault ? \`<button class=\"btn\" data-action=\"setDefault\">设为默认</button>\` : ''}
+                                <button class=\"btn btn-danger\" data-action=\"deleteEditor\">删除</button>
                             </div>
                         </div>
-                        <div class="editor-edit" id="edit-\${editor.id}" style="display: none;">
-                            <div class="form-group">
+                        <div class=\"editor-edit\" id=\"edit-\${editor.id}\" style=\"display: none;\">
+                            <div class=\"form-group\">
                                 <label>编辑器名称:</label>
-                                <input type="text" id="editName-\${editor.id}" class="form-input" value="\${editor.name}">
+                                <input type=\"text\" id=\"editName-\${editor.id}\" class=\"form-input\" value=\"\${editor.name}\">
                             </div>
-                            <div class="form-group">
+                            <div class=\"form-group\">
                                 <label>编辑器路径:</label>
-                                <div class="path-group">
-                                    <input type="text" id="editPath-\${editor.id}" class="form-input" value="\${editor.path}">
-                                    <button class="btn" onclick="selectEditPath('\${editor.id}')">浏览</button>
+                                <div class=\"path-group\">
+                                    <input type=\"text\" id=\"editPath-\${editor.id}\" class=\"form-input\" value=\"\${editor.path}\">
+                                    <button class=\"btn\" data-action=\"selectEditPath\">浏览</button>
                                 </div>
                             </div>
-                            <div class="button-group">
-                                <button class="btn" onclick="saveEditor('\${editor.id}')">保存</button>
-                                <button class="btn" onclick="cancelEdit('\${editor.id}')">取消</button>
+                            <div class=\"button-group\">
+                                <button class=\"btn\" data-action=\"saveEditor\">保存</button>
+                                <button class=\"btn\" data-action=\"cancelEdit\">取消</button>
                             </div>
                         </div>
                     </div>
                 \`).join('');
             } catch (error) {
-                alert('加载编辑器列表失败: ' + error.message);
+                console.error('加载编辑器列表失败:', error);
+                // 使用自定义提示替代alert
+                showConfirm('加载编辑器列表失败: ' + error.message);
             }
         }
 
@@ -352,7 +411,7 @@ export class WebViewManager {
             const isDefault = document.getElementById('isDefault').checked;
             
             if (!name || !path) {
-                alert('请填写编辑器名称和路径');
+                await showConfirm('请填写编辑器名称和路径');
                 return;
             }
 
@@ -362,9 +421,9 @@ export class WebViewManager {
                 document.getElementById('editorPath').value = '';
                 document.getElementById('isDefault').checked = false;
                 await loadEditors();
-                alert('编辑器添加成功');
+                await showConfirm('编辑器添加成功');
             } catch (error) {
-                alert('添加编辑器失败: ' + error.message);
+                await showConfirm('添加编辑器失败: ' + error.message);
             }
         }
 
@@ -384,7 +443,7 @@ export class WebViewManager {
                         console.log('当前input值:', inputElement.value);
                     } else {
                         console.error('未找到editorPath输入框元素');
-                        alert('未找到输入框元素，请刷新页面重试');
+                        await showConfirm('未找到输入框元素，请刷新页面重试');
                     }
                 } else if (result && !result.success) {
                     console.log('用户取消了路径选择');
@@ -393,16 +452,16 @@ export class WebViewManager {
                 }
             } catch (error) {
                 console.error('选择路径失败:', error);
-                alert('选择路径失败: ' + error.message);
+                await showConfirm('选择路径失败: ' + error.message);
             }
         }
 
         async function testEditor(editorId) {
             try {
                 const result = await sendMessage('testEditor', { editorId });
-                alert(result.success ? '测试成功' : '测试失败: ' + result.error);
+                await showConfirm(result.success ? '测试成功' : '测试失败: ' + result.error);
             } catch (error) {
-                alert('测试失败: ' + error.message);
+                await showConfirm('测试失败: ' + error.message);
             }
         }
 
@@ -410,25 +469,25 @@ export class WebViewManager {
             try {
                 await sendMessage('setDefaultEditor', { editorId });
                 await loadEditors();
-                alert('设置成功');
+                await showConfirm('设置成功');
             } catch (error) {
-                alert('设置失败: ' + error.message);
+                await showConfirm('设置失败: ' + error.message);
             }
         }
 
         async function deleteEditor(editorId) {
-            if (confirm('确定要删除这个编辑器吗？')) {
+            const confirmed = await showConfirm('确定要删除这个编辑器吗？');
+            if (confirmed) {
                 try {
                     await sendMessage('deleteEditor', { editorId });
                     await loadEditors();
-                    alert('删除成功');
+                    await showConfirm('删除成功');
                 } catch (error) {
-                    alert('删除失败: ' + error.message);
+                    await showConfirm('删除失败: ' + error.message);
                 }
             }
         }
 
-        // 新增的编辑功能函数
         function editEditor(editorId) {
             document.getElementById('display-' + editorId).style.display = 'none';
             document.getElementById('edit-' + editorId).style.display = 'block';
@@ -444,7 +503,7 @@ export class WebViewManager {
             const path = document.getElementById('editPath-' + editorId).value;
             
             if (!name || !path) {
-                alert('请填写编辑器名称和路径');
+                await showConfirm('请填写编辑器名称和路径');
                 return;
             }
 
@@ -454,9 +513,9 @@ export class WebViewManager {
                     updates: { name, path } 
                 });
                 await loadEditors();
-                alert('更新成功');
+                await showConfirm('更新成功');
             } catch (error) {
-                alert('更新失败: ' + error.message);
+                await showConfirm('更新失败: ' + error.message);
             }
         }
 
@@ -476,7 +535,7 @@ export class WebViewManager {
                         console.log('当前编辑input值:', inputElement.value);
                     } else {
                         console.error('未找到editPath输入框元素，editorId:', editorId);
-                        alert('未找到输入框元素，请刷新页面重试');
+                        await showConfirm('未找到输入框元素，请刷新页面重试');
                     }
                 } else if (result && !result.success) {
                     console.log('用户取消了编辑路径选择');
@@ -485,9 +544,30 @@ export class WebViewManager {
                 }
             } catch (error) {
                 console.error('选择编辑路径失败:', error);
-                alert('选择路径失败: ' + error.message);
+                await showConfirm('选择路径失败: ' + error.message);
             }
         }
+
+        document.addEventListener('click', (event) => {
+            const target = event.target.closest('[data-action]');
+            if (!target) return;
+
+            const action = target.dataset.action;
+            const editorItem = target.closest('.editor-item');
+            const editorId = editorItem ? editorItem.dataset.editorId : null;
+
+            switch (action) {
+                case 'addEditor': addEditor(); break;
+                case 'selectPath': selectPath(); break;
+                case 'editEditor': editEditor(editorId); break;
+                case 'testEditor': testEditor(editorId); break;
+                case 'setDefault': setDefault(editorId); break;
+                case 'deleteEditor': deleteEditor(editorId); break;
+                case 'saveEditor': saveEditor(editorId); break;
+                case 'cancelEdit': cancelEdit(editorId); break;
+                case 'selectEditPath': selectEditPath(editorId); break;
+            }
+        });
 
         loadEditors();
     </script>
