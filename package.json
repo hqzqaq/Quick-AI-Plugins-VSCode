@@ -1,0 +1,171 @@
+{
+  "name": "quickai",
+  "displayName": "QuickAI",
+  "description": "无缝连接VS Code与Jetbrains IDE，通过可自定义快捷键快速跳转到相同文件位置",
+  "version": "1.0.0",
+  "publisher": "hqzqaq",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:quickai.openEditorManager",
+    "onCommand:quickai.openKeyboardSettings",
+    "onCommand:quickai.jumpToExternalEditor",
+    "onCommand:quickai.triggerWithShortcut"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "quickai.openEditorManager",
+        "title": "QuickAI: 管理外部编辑器"
+      },
+      {
+        "command": "quickai.openKeyboardSettings",
+        "title": "QuickAI: 配置快捷键"
+      },
+      {
+        "command": "quickai.jumpToExternalEditor",
+        "title": "QuickAI: 跳转到外部编辑器"
+      },
+      {
+        "command": "quickai.triggerWithShortcut",
+        "title": "QuickAI: 快捷键触发跳转"
+      }
+    ],
+    "keybindings": [
+        {
+          "command": "quickai.triggerWithShortcut",
+          "key": "ctrl+shift+o",
+          "mac": "cmd+shift+o",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "quickai.triggerWithShortcut",
+          "key": "ctrl+alt+o",
+          "mac": "cmd+alt+o",
+          "when": "editorTextFocus"
+        }
+    ],
+    "configuration": {
+      "title": "QuickAI",
+      "properties": {
+        "quickai.editors": {
+          "type": "array",
+          "default": [],
+          "description": "配置的外部编辑器列表",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "编辑器唯一标识"
+              },
+              "name": {
+                "type": "string",
+                "description": "编辑器名称"
+              },
+              "path": {
+                "type": "string",
+                "description": "编辑器可执行文件路径"
+              },
+              "isDefault": {
+                "type": "boolean",
+                "description": "是否为默认编辑器"
+              }
+            }
+          }
+        },
+        "quickai.keyboardModifiers": {
+          "type": "object",
+          "default": {
+            "ctrl": true,
+            "shift": false,
+            "alt": false,
+            "meta": false
+          },
+          "description": "快捷键修饰符配置",
+          "properties": {
+            "ctrl": {
+              "type": "boolean",
+              "description": "启用Ctrl键"
+            },
+            "shift": {
+              "type": "boolean",
+              "description": "启用Shift键"
+            },
+            "alt": {
+              "type": "boolean",
+              "description": "启用Alt键"
+            },
+            "meta": {
+              "type": "boolean",
+              "description": "启用Meta键（Win/Cmd）"
+            }
+          }
+        },
+        "quickai.enableCache": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用缓存机制以提升性能"
+        },
+        "quickai.debounceTime": {
+          "type": "number",
+          "default": 150,
+          "description": "防抖延迟时间（毫秒）"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "16.x",
+    "@types/uuid": "^10.0.0",
+    "@types/vscode": "^1.70.0",
+    "@typescript-eslint/eslint-plugin": "^5.31.0",
+    "@typescript-eslint/parser": "^5.31.0",
+    "eslint": "^8.20.0",
+    "sharp": "^0.34.3",
+    "typescript": "^4.7.4"
+  },
+  "dependencies": {
+    "uuid": "^9.0.0"
+  },
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
+  "author": "hqzqaq",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hqzqaq/Quick-AI-Plugins-VSCode"
+  },
+  "homepage": "https://github.com/hqzqaq/Quick-AI-Plugins-VSCode#readme",
+  "bugs": {
+    "url": "https://github.com/hqzqaq/Quick-AI-Plugins-VSCode/issues"
+  },
+  "keywords": [
+    "vscode",
+    "jetbrains",
+    "ide",
+    "jump",
+    "editor",
+    "quick",
+    "ai"
+  ]
+}

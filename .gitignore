@@ -1,0 +1,7 @@
+.idea
+.vscode
+node_modules
+dist
+.codebuddy
+out
+quickai-1.0.0.vsix

@@ -1,0 +1,19 @@
+.vscode/**
+.vscode-test/**
+src/**
+.gitignore
+.yarnrc
+vsc-extension-quickstart.md
+**/tsconfig.json
+**/.eslintrc.json
+**/*.map
+**/*.ts
+# Include only necessary runtime dependencies
+node_modules/**
+!node_modules/uuid/**
+.nyc_output/**
+coverage/**
+**/*.test.ts
+**/*.spec.ts
+.DS_Store
+*.vsix
