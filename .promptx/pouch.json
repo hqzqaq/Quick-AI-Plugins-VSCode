@@ -1,0 +1,17 @@
+{
+  "currentState": "initialized",
+  "stateHistory": [
+    {
+      "from": "initial",
+      "command": "init",
+      "timestamp": "2025-08-27T09:01:41.143Z",
+      "args": [
+        {
+          "workingDirectory": "/Users/hqzqaq/project/js/Quick-AI-Plugins-VSCode",
+          "ideType": "vscode"
+        }
+      ]
+    }
+  ],
+  "lastUpdated": "2025-08-27T09:01:41.169Z"
+}

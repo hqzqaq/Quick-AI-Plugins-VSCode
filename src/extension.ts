@@ -279,11 +279,6 @@ export class QuickAIExtension {
                 await this.openEditorManager();
             });
 
-            // 注册快捷键设置命令
-            const keyboardSettingsCommand = vscode.commands.registerCommand('quickai.openKeyboardSettings', async () => {
-                await this.openKeyboardSettings();
-            });
-
             // 注册测试编辑器命令
             const testEditorCommand = vscode.commands.registerCommand('quickai.testEditor', async (editorId?: string) => {
                 await this.testEditor(editorId);
@@ -301,7 +296,6 @@ export class QuickAIExtension {
             this.context.subscriptions.push(
                 jumpCommand,
                 editorManagerCommand,
-                keyboardSettingsCommand,
                 testEditorCommand,
                 diagnosticsCommand
             );
@@ -310,7 +304,6 @@ export class QuickAIExtension {
             this.disposables.push(
                 jumpCommand,
                 editorManagerCommand,
-                keyboardSettingsCommand,
                 testEditorCommand,
                 diagnosticsCommand
             );
@@ -319,7 +312,6 @@ export class QuickAIExtension {
                 registeredCommands: [
                     'quickai.jumpToExternalEditor',
                     'quickai.openEditorManager',
-                    'quickai.openKeyboardSettings',
                     'quickai.testEditor',
                     'quickai.showDiagnostics'
                 ]
@@ -696,25 +688,6 @@ export class QuickAIExtension {
         } catch (error) {
             this.logger.error('打开编辑器管理器失败', error as Error);
             this.showErrorMessage('无法打开编辑器管理器', error as Error);
-        }
-    }
-
-    /**
-     * 打开快捷键设置
-     */
-    private async openKeyboardSettings(): Promise<void> {
-        try {
-            if (!this.webViewManager) {
-                this.showWarningMessage('系统未初始化完成，请稍后再试');
-                return;
-            }
-            
-            await this.webViewManager.openKeyboardSettings();
-            this.logger.info('打开快捷键设置');
-
-        } catch (error) {
-            this.logger.error('打开快捷键设置失败', error as Error);
-            this.showErrorMessage('无法打开快捷键设置', error as Error);
         }
     }
 

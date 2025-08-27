@@ -15,7 +15,6 @@ export class WebViewManager {
     private readonly commandExecutor: CommandExecutor;
     private readonly logger = getQuickAILogger();
     private editorManagerPanel: vscode.WebviewPanel | undefined;
-    private keyboardSettingsPanel: vscode.WebviewPanel | undefined;
 
     constructor(
         _context: vscode.ExtensionContext,
@@ -53,37 +52,6 @@ export class WebViewManager {
             this.logger.info('编辑器管理界面已打开');
         } catch (error) {
             this.logger.error('打开编辑器管理界面失败', error as Error);
-            throw error;
-        }
-    }
-
-    public async openKeyboardSettings(): Promise<void> {
-        try {
-            if (this.keyboardSettingsPanel) {
-                this.keyboardSettingsPanel.reveal();
-                return;
-            }
-
-            this.keyboardSettingsPanel = vscode.window.createWebviewPanel(
-                'quickai-keyboard-settings',
-                'QuickAI - 快捷键配置',
-                vscode.ViewColumn.One,
-                {
-                    enableScripts: true,
-                    retainContextWhenHidden: true
-                }
-            );
-
-            this.keyboardSettingsPanel.webview.html = this.getKeyboardSettingsHtml();
-            this.setupKeyboardSettingsMessageHandling();
-
-            this.keyboardSettingsPanel.onDidDispose(() => {
-                this.keyboardSettingsPanel = undefined;
-            });
-
-            this.logger.info('快捷键配置界面已打开');
-        } catch (error) {
-            this.logger.error('打开快捷键配置界面失败', error as Error);
             throw error;
         }
     }
@@ -152,11 +120,19 @@ export class WebViewManager {
                                 success: true,
                                 path: selectedPath
                             };
+                            
+                            this.logger.info('准备发送路径选择结果到前端', { 
+                                success: result.success, 
+                                path: result.path,
+                                messageId: message.messageId 
+                            });
                         } else {
                             result = {
                                 success: false,
                                 path: null
                             };
+                            
+                            this.logger.info('用户取消了路径选择', { messageId: message.messageId });
                         }
                         break;
                 }
@@ -169,38 +145,6 @@ export class WebViewManager {
 
             } catch (error) {
                 await this.editorManagerPanel?.webview.postMessage({
-                    type: 'error',
-                    messageId: message.messageId,
-                    data: { error: (error as Error).message }
-                });
-            }
-        });
-    }
-
-    private setupKeyboardSettingsMessageHandling(): void {
-        if (!this.keyboardSettingsPanel) return;
-
-        this.keyboardSettingsPanel.webview.onDidReceiveMessage(async (message) => {
-            try {
-                let result;
-                
-                switch (message.type) {
-                    case 'getKeyboardConfig':
-                        result = this.configManager.getKeyboardModifiers();
-                        break;
-                    case 'updateKeyboardConfig':
-                        result = await this.configManager.updateKeyboardModifiers(message.data);
-                        break;
-                }
-
-                await this.keyboardSettingsPanel?.webview.postMessage({
-                    type: 'response',
-                    messageId: message.messageId,
-                    data: result
-                });
-
-            } catch (error) {
-                await this.keyboardSettingsPanel?.webview.postMessage({
                     type: 'error',
                     messageId: message.messageId,
                     data: { error: (error as Error).message }
@@ -223,74 +167,59 @@ export class WebViewManager {
                 return appPath;
             }
 
-            const appName = path.basename(appPath, '.app');
+            const infoPlistPath = path.join(appPath, 'Contents', 'Info.plist');
             const macOSDir = path.join(appPath, 'Contents', 'MacOS');
-            
-            // 检查 MacOS 目录是否存在
-            if (!fs.existsSync(macOSDir)) {
-                this.logger.warn('找不到 MacOS 目录', { appPath, macOSDir });
-                return appPath; // 返回原路径
+
+            if (!fs.existsSync(infoPlistPath) || !fs.existsSync(macOSDir)) {
+                this.logger.warn('应用包结构不完整，找不到Info.plist或MacOS目录', { appPath });
+                return appPath; // Return original path
             }
 
-            // 获取所有可能的可执行文件名
-            const possibleNames = [
-                appName,
-                appName.toLowerCase(),
-                appName.replace(/\s+/g, ''),  // 去除空格
-                appName.replace(/\s+/g, '').toLowerCase(),
-                // 常见的 JetBrains IDE 名称
-                'idea',
-                'webstorm', 
-                'pycharm',
-                'phpstorm',
-                'clion',
-                'datagrip',
-                'goland',
-                'rubymine',
-                'rider',
-                'appcode'
-            ];
-
-            // 尝试找到可执行文件
-            for (const name of possibleNames) {
-                const executablePath = path.join(macOSDir, name);
+            // 1. Read Info.plist to find the executable name
+            try {
+                const plistContent = fs.readFileSync(infoPlistPath, 'utf8');
+                const match = /<key>CFBundleExecutable<\/key>\s*<string>([^<]+)<\/string>/.exec(plistContent);
                 
-                if (fs.existsSync(executablePath)) {
-                    // 检查是否为可执行文件
-                    const stats = fs.statSync(executablePath);
-                    if (stats.isFile() && (stats.mode & parseInt('111', 8))) { // 检查执行权限
-                        this.logger.info('找到可执行文件', { 
-                            appName, 
-                            executableName: name, 
-                            executablePath 
-                        });
-                        return executablePath;
+                if (match && match[1]) {
+                    const executableName = match[1];
+                    const executablePath = path.join(macOSDir, executableName);
+                    
+                    if (fs.existsSync(executablePath)) {
+                        const stats = fs.statSync(executablePath);
+                        if (stats.isFile() && (stats.mode & parseInt('111', 8))) { // Check execute permission
+                            this.logger.info('通过Info.plist找到可执行文件', { appPath, executablePath });
+                            return executablePath;
+                        }
                     }
                 }
+            } catch (plistError) {
+                this.logger.error('读取或解析Info.plist失败', plistError as Error, { appPath });
+                // Fallback to old method if plist parsing fails
             }
 
-            // 如果找不到任何可执行文件，列出所有文件并选择第一个可执行文件
+            // 2. Fallback: if Info.plist fails, scan the MacOS directory
+            this.logger.info('Info.plist解析失败或未找到可执行文件，回退到扫描MacOS目录', { appPath });
             const files = fs.readdirSync(macOSDir);
             for (const file of files) {
                 const filePath = path.join(macOSDir, file);
-                const stats = fs.statSync(filePath);
-                
-                if (stats.isFile() && (stats.mode & parseInt('111', 8))) {
-                    this.logger.info('使用默认可执行文件', { 
-                        appName,
-                        fileName: file,
-                        filePath 
-                    });
-                    return filePath;
+                try {
+                    const stats = fs.statSync(filePath);
+                    // Pick the first file that is executable and not a directory
+                    if (stats.isFile() && (stats.mode & parseInt('111', 8))) {
+                        this.logger.info('在MacOS目录中找到一个可执行文件作为回退选项', { filePath });
+                        return filePath;
+                    }
+                } catch(statError) {
+                    this.logger.warn('无法获取文件状态', { filePath, error: statError });
                 }
             }
 
-            this.logger.warn('未找到任何可执行文件', { appPath, macOSDir, files });
-            return appPath; // 返回原 .app 路径
+            this.logger.warn('在macOS应用包中未找到任何可执行文件', { appPath, macOSDir, files });
+            return appPath; // Return original .app path if nothing found
             
         } catch (error) {
             this.logger.error('处理macOS应用包路径失败', error as Error, { appPath });
-            return appPath; // 出错时返回原路径
+            return appPath; // On error, return original path
         }
     }
 
@@ -358,7 +287,7 @@ export class WebViewManager {
                         pendingMessages.delete(id);
                         reject(new Error('超时'));
                     }
-                }, 5000);
+                }, 10000); // 增加超时时间到10秒，以防macOS .app处理时间过长
             });
         }
 
@@ -440,13 +369,27 @@ export class WebViewManager {
         }
 
         async function selectPath() {
+            console.log('开始选择路径...');
             try {
                 const result = await sendMessage('selectEditorPath');
+                console.log('收到路径选择结果:', result);
+                
                 if (result && result.success && result.path) {
-                    document.getElementById('editorPath').value = result.path;
-                    console.log('路径选择成功:', result.path);
+                    const inputElement = document.getElementById('editorPath');
+                    console.log('找到input元素:', inputElement);
+                    
+                    if (inputElement) {
+                        inputElement.value = result.path;
+                        console.log('路径设置成功:', result.path);
+                        console.log('当前input值:', inputElement.value);
+                    } else {
+                        console.error('未找到editorPath输入框元素');
+                        alert('未找到输入框元素，请刷新页面重试');
+                    }
                 } else if (result && !result.success) {
                     console.log('用户取消了路径选择');
+                } else {
+                    console.error('收到无效的结果:', result);
                 }
             } catch (error) {
                 console.error('选择路径失败:', error);
@@ -518,14 +461,30 @@ export class WebViewManager {
         }
 
         async function selectEditPath(editorId) {
+            console.log('开始选择编辑路径，editorId:', editorId);
             try {
                 const result = await sendMessage('selectEditorPath');
+                console.log('收到编辑路径选择结果:', result);
+                
                 if (result && result.success && result.path) {
-                    document.getElementById('editPath-' + editorId).value = result.path;
-                    console.log('路径选择成功:', result.path);
+                    const inputElement = document.getElementById('editPath-' + editorId);
+                    console.log('找到编辑input元素:', inputElement);
+                    
+                    if (inputElement) {
+                        inputElement.value = result.path;
+                        console.log('编辑路径设置成功:', result.path);
+                        console.log('当前编辑input值:', inputElement.value);
+                    } else {
+                        console.error('未找到editPath输入框元素，editorId:', editorId);
+                        alert('未找到输入框元素，请刷新页面重试');
+                    }
+                } else if (result && !result.success) {
+                    console.log('用户取消了编辑路径选择');
+                } else {
+                    console.error('收到无效的编辑结果:', result);
                 }
             } catch (error) {
-                console.error('选择路径失败:', error);
+                console.error('选择编辑路径失败:', error);
                 alert('选择路径失败: ' + error.message);
             }
         }
@@ -536,134 +495,4 @@ export class WebViewManager {
 </html>`;
     }
 
-    private getKeyboardSettingsHtml(): string {
-        return `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>快捷键配置</title>
-    <style>
-        body { font-family: var(--vscode-font-family); color: var(--vscode-editor-foreground); background: var(--vscode-editor-background); margin: 20px; }
-        .btn { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin: 4px; }
-        .modifier-key { display: flex; justify-content: space-between; align-items: center; padding: 12px; margin: 8px 0; border: 1px solid var(--vscode-widget-border); border-radius: 6px; }
-        .preview { background: var(--vscode-editor-background); padding: 16px; margin: 16px 0; border: 1px solid var(--vscode-widget-border); border-radius: 6px; font-family: monospace; }
-    </style>
-</head>
-<body>
-    <h1>⌨️ 快捷键配置</h1>
-    
-    <div id="modifierKeys">
-        <div class="modifier-key">
-            <span>Ctrl 键</span>
-            <label><input type="checkbox" id="ctrl"> 启用</label>
-        </div>
-        <div class="modifier-key">
-            <span>Shift 键</span>
-            <label><input type="checkbox" id="shift"> 启用</label>
-        </div>
-        <div class="modifier-key">
-            <span>Alt 键 (Option)</span>
-            <label><input type="checkbox" id="alt"> 启用</label>
-        </div>
-        <div class="modifier-key">
-            <span>Meta 键 (Cmd/Win)</span>
-            <label><input type="checkbox" id="meta"> 启用</label>
-        </div>
-    </div>
-    
-    <div class="preview" id="preview">当前快捷键: 加载中...</div>
-    
-    <button class="btn" onclick="saveConfig()">保存配置</button>
-    <button class="btn" onclick="resetConfig()">重置为默认</button>
-
-    <script>
-        const vscode = acquireVsCodeApi();
-        let messageId = 0;
-        const pendingMessages = new Map();
-
-        function sendMessage(type, data = null) {
-            return new Promise((resolve, reject) => {
-                const id = ++messageId;
-                pendingMessages.set(id, { resolve, reject });
-                vscode.postMessage({ type, data, messageId: id });
-                setTimeout(() => {
-                    if (pendingMessages.has(id)) {
-                        pendingMessages.delete(id);
-                        reject(new Error('超时'));
-                    }
-                }, 5000);
-            });
-        }
-
-        window.addEventListener('message', event => {
-            const { messageId, type, data } = event.data;
-            if (pendingMessages.has(messageId)) {
-                const { resolve, reject } = pendingMessages.get(messageId);
-                pendingMessages.delete(messageId);
-                type === 'error' ? reject(new Error(data?.error)) : resolve(data);
-            }
-        });
-
-        function updatePreview() {
-            const ctrl = document.getElementById('ctrl').checked;
-            const shift = document.getElementById('shift').checked;
-            const alt = document.getElementById('alt').checked;
-            const meta = document.getElementById('meta').checked;
-            
-            const keys = [];
-            if (ctrl) keys.push('Ctrl');
-            if (shift) keys.push('Shift');
-            if (alt) keys.push('Alt');
-            if (meta) keys.push(navigator.platform.includes('Mac') ? 'Cmd' : 'Win');
-            
-            const preview = keys.length > 0 ? keys.join(' + ') + ' + 鼠标点击' : '未配置快捷键';
-            document.getElementById('preview').textContent = '当前快捷键: ' + preview;
-        }
-
-        async function loadConfig() {
-            try {
-                const config = await sendMessage('getKeyboardConfig');
-                document.getElementById('ctrl').checked = config.ctrl;
-                document.getElementById('shift').checked = config.shift;
-                document.getElementById('alt').checked = config.alt;
-                document.getElementById('meta').checked = config.meta;
-                updatePreview();
-            } catch (error) {
-                alert('加载配置失败: ' + error.message);
-            }
-        }
-
-        async function saveConfig() {
-            const config = {
-                ctrl: document.getElementById('ctrl').checked,
-                shift: document.getElementById('shift').checked,
-                alt: document.getElementById('alt').checked,
-                meta: document.getElementById('meta').checked
-            };
-            
-            try {
-                await sendMessage('updateKeyboardConfig', config);
-                alert('配置保存成功');
-            } catch (error) {
-                alert('保存配置失败: ' + error.message);
-            }
-        }
-
-        function resetConfig() {
-            document.getElementById('ctrl').checked = true;
-            document.getElementById('shift').checked = false;
-            document.getElementById('alt').checked = false;
-            document.getElementById('meta').checked = false;
-            updatePreview();
-        }
-
-        document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-            checkbox.addEventListener('change', updatePreview);
-        });
-
-        loadConfig();
-    </script>
-</body>
-</html>`;
-    }
 }
