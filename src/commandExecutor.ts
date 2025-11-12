@@ -14,7 +14,8 @@ import {
     PlatformInfo,
     EditorConfig,
     CommandBuilder,
-    ErrorHandler
+    ErrorHandler,
+    JumpMode
 } from './types';
 import { CacheManager, Cacheable } from './cacheManager';
 
@@ -176,7 +177,8 @@ export class CommandExecutor {
             editor,
             filePath: __filename, // 使用当前文件进行测试
             lineNumber: 1,
-            columnNumber: 1
+            columnNumber: 1,
+            projectRoot: __dirname // 使用当前文件所在目录作为项目根目录进行测试
         };
 
         return this.executeJumpCommand(testParams);
@@ -306,6 +308,8 @@ export class CommandExecutor {
      * @returns 包含shell操作符返回true
      */
     private containsShellOperators(command: string): boolean {
+        // 对于直接执行的Electron可执行文件，我们不需要特殊处理open命令
+        // 只检查是否包含其他shell操作符
         const shellOperators = ['nohup', '>', '<', '&', '|', '&&', '||', ';', '$(', '`'];
         return shellOperators.some(operator => command.includes(operator));
     }
@@ -354,33 +358,111 @@ export class CommandExecutor {
         this.commandBuilders.set('win32', (params, _platform) => {
             const editorPath = this.escapeWindowsPath(params.editor.path);
             const filePath = this.escapeWindowsPath(params.filePath);
+            const projectPath = this.escapeWindowsPath(params.projectRoot);
             
-            return `"${editorPath}" --line ${params.lineNumber} "${filePath}"`;
+            return this.buildCommandByMode(params.editor.jumpMode, editorPath, filePath, projectPath, params.lineNumber, params.columnNumber, true);
         });
 
         // macOS命令构建器
         this.commandBuilders.set('darwin', (params, _platform) => {
             const editorPath = this.escapeUnixPath(params.editor.path);
             const filePath = this.escapeUnixPath(params.filePath);
+            const projectPath = this.escapeUnixPath(params.projectRoot);
             
-            return `nohup '${editorPath}' --line ${params.lineNumber} "${filePath}" > /dev/null 2>&1 &`;
+            const baseCommand = this.buildCommandByMode(params.editor.jumpMode, editorPath, filePath, projectPath, params.lineNumber, params.columnNumber, true);
+            
+            // 对于VS Code，使用open命令时不添加nohup包装
+            if (baseCommand.trim().startsWith('open ')) {
+                return baseCommand;
+            }
+            
+            const timestamp = Date.now();
+            const logFile = `/tmp/vscode-jump-${timestamp}.log`;
+            return `nohup ${baseCommand} > ${logFile} 2>&1 & echo "日志保存在: ${logFile}"`;
         });
 
         // Linux命令构建器
         this.commandBuilders.set('linux', (params, _platform) => {
             const editorPath = this.escapeUnixPath(params.editor.path);
             const filePath = this.escapeUnixPath(params.filePath);
+            const projectPath = this.escapeUnixPath(params.projectRoot);
             
-            return `nohup '${editorPath}' --line ${params.lineNumber} "${filePath}" > /dev/null 2>&1 &`;
+            const baseCommand = this.buildCommandByMode(params.editor.jumpMode, editorPath, filePath, projectPath, params.lineNumber, params.columnNumber, true);
+            return `nohup ${baseCommand} > /dev/null 2>&1 &`;
         });
 
         // 默认命令构建器
         this.commandBuilders.set('default', (params, _platform) => {
             const editorPath = params.editor.path;
             const filePath = params.filePath;
+            const projectPath = params.projectRoot;
             
-            return `"${editorPath}" --line ${params.lineNumber} "${filePath}"`;
+            return this.buildCommandByMode(params.editor.jumpMode, editorPath, filePath, projectPath, params.lineNumber, params.columnNumber, true);
         });
+    }
+
+    /**
+     * 根据跳转模式构建命令
+     * @param jumpMode 跳转模式
+     * @param editorPath 编辑器路径
+     * @param filePath 文件路径
+     * @param projectPath 项目路径
+     * @param lineNumber 行号
+     * @param columnNumber 列号
+     * @param needQuotes 是否需要引号
+     * @returns 构建的命令字符串
+     */
+    private buildCommandByMode(
+        jumpMode: JumpMode | undefined,
+        editorPath: string,
+        filePath: string,
+        projectPath: string,
+        lineNumber: number,
+        columnNumber?: number,
+        needQuotes: boolean = true
+    ): string {
+        const column = columnNumber || 1;
+        
+        // 默认为IDEA模式
+        const mode = jumpMode || JumpMode.IDEA;
+        
+        // 针对macOS平台上的VS Code进行特殊处理
+        if (mode === JumpMode.VSCODE && this.platformInfo.isMacOS) {
+            return this.buildMacOSVSCodeCommand(editorPath, filePath, projectPath, lineNumber, column);
+        } else if (mode === JumpMode.VSCODE) {
+            // VSCode模式：<编辑器路径> <项目路径> -g <文件路径>:<行号>:<列号>
+            const editor = needQuotes ? `"${editorPath}"` : editorPath;
+            const project = needQuotes ? `"${projectPath}"` : projectPath;
+            const fileRef = `"${filePath}:${lineNumber}:${column}"`;
+            return `${editor} ${project} -g ${fileRef}`;
+        } else {
+            // IDEA模式：<编辑器路径> <文件路径> --line <行号>
+            const editor = needQuotes ? `"${editorPath}"` : editorPath;
+            const file = needQuotes ? `"${filePath}"` : filePath;
+            return `${editor} ${file} --line ${lineNumber}`;
+        }
+    }
+    
+    /**
+     * 构建macOS平台上的VS Code命令
+     * 在macOS上，使用open命令启动VS Code应用程序
+     * @param editorPath 编辑器路径
+     * @param filePath 文件路径
+     * @param projectPath 项目路径
+     * @param lineNumber 行号
+     * @param columnNumber 列号
+     * @returns 构建好的命令字符串
+     */
+    private buildMacOSVSCodeCommand(
+        editorPath: string,
+        filePath: string,
+        _projectPath: string,
+        lineNumber: number,
+        columnNumber: number
+    ): string {
+        // 根据测试结果，使用正确的Electron参数格式
+        // 直接传递-g参数定位到指定文件位置，不使用--args
+        return `"${editorPath}" "${_projectPath}" -g "${filePath}:${lineNumber}:${columnNumber}"`;
     }
 
     /**

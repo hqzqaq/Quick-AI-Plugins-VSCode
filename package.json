@@ -2,7 +2,7 @@
   "name": "quickai",
   "displayName": "QuickAI",
   "description": "无缝连接VS Code与Jetbrains IDE，通过可自定义快捷键快速跳转到相同文件位置",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "hqzqaq",
   "engines": {
     "vscode": "^1.70.0"

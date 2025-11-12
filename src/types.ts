@@ -24,6 +24,9 @@ export interface EditorConfig {
     /** 编辑器类型（可选） */
     type?: EditorType;
     
+    /** 跳转模式（可选） */
+    jumpMode?: JumpMode;
+    
     /** 创建时间戳 */
     readonly createdAt: number;
     
@@ -47,8 +50,22 @@ export enum EditorType {
     /** 其他Jetbrains IDE */
     JETBRAINS = 'jetbrains',
     
+    /** Visual Studio Code及其衍生版本 */
+    VSCODE = 'vscode',
+    
     /** 自定义编辑器 */
     CUSTOM = 'custom'
+}
+
+/**
+ * 编辑器跳转模式枚举
+ */
+export enum JumpMode {
+    /** IDEA模式：使用--line参数 */
+    IDEA = 'idea',
+    
+    /** VSCode模式：使用-g参数 */
+    VSCODE = 'vscode'
 }
 
 /**
@@ -162,8 +179,8 @@ export interface CommandExecutionParams {
     /** 要跳转的列号（可选） */
     readonly columnNumber?: number;
     
-    /** 项目根目录路径（可选） */
-    readonly projectRoot?: string;
+    /** 项目根目录路径（必需） */
+    readonly projectRoot: string;
 }
 
 /**

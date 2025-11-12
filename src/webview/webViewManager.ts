@@ -226,23 +226,25 @@ export class WebViewManager {
 
     private async getEditorManagerHtml(): Promise<string> {
         try {
-            // 优先从源码目录读取，如果不存在则从编译输出目录读取
-            const workspacePath = path.resolve(__dirname, '../..');
-            const htmlPath = path.join(workspacePath, 'src', 'webview', 'editor-manager.html');
-            const jsPath = path.join(workspacePath, 'src', 'webview', 'editor-manager.js');
-            
+            // 为打包和开发环境提供多种路径选择
+            // 在VS Code扩展中，__dirname指向编译后的out目录
             let htmlContent = '';
             let jsContent = '';
             
-            // 尝试多个可能的文件位置
+            // 获取扩展根目录的多种可能路径
+            const extensionRootPath = path.resolve(__dirname, '../..');
+            
+            // 尝试多个可能的文件位置，包括打包后的结构
             const possibleHtmlPaths = [
-                htmlPath, // src/webview/editor-manager.html
-                path.join(workspacePath, 'out', 'webview', 'editor-manager.html') // out/webview/editor-manager.html
+                path.join(extensionRootPath, 'src', 'webview', 'editor-manager.html'), // 打包后的src路径
+                path.join(extensionRootPath, '..', 'src', 'webview', 'editor-manager.html'), // 开发环境相对路径
+                path.join(extensionRootPath, 'webview', 'editor-manager.html') // 备用路径
             ];
             
             const possibleJsPaths = [
-                jsPath, // src/webview/editor-manager.js
-                path.join(workspacePath, 'out', 'webview', 'editor-manager.js') // out/webview/editor-manager.js
+                path.join(extensionRootPath, 'src', 'webview', 'editor-manager.js'), // 打包后的src路径
+                path.join(extensionRootPath, '..', 'src', 'webview', 'editor-manager.js'), // 开发环境相对路径
+                path.join(extensionRootPath, 'webview', 'editor-manager.js') // 备用路径
             ];
             
             // 尝试读取HTML文件

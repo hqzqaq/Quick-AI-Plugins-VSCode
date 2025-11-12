@@ -5,7 +5,7 @@
  * @version 1.0.0
  */
 
-import { EditorConfig, KeyboardModifiers, ConfigValidationResult } from '../types';
+import { EditorConfig, KeyboardModifiers, ConfigValidationResult, JumpMode } from '../types';
 import { FileUtils } from './fileUtils';
 import { PathUtils } from './pathUtils';
 import { PlatformUtils } from './platformUtils';
@@ -45,6 +45,13 @@ export class ValidationUtils {
         // 验证布尔字段
         if (config.isDefault !== undefined && typeof config.isDefault !== 'boolean') {
             errors.push('isDefault字段必须是布尔类型');
+        }
+
+        // 验证跳转模式字段
+        if (config.jumpMode !== undefined) {
+            if (!Object.values(JumpMode).includes(config.jumpMode)) {
+                errors.push(`jumpMode字段必须是有效的跳转模式值（${Object.values(JumpMode).join('或')}）`);
+            }
         }
 
         // 验证时间戳字段

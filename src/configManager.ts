@@ -12,7 +12,8 @@ import {
     KeyboardModifiers,
     ConfigValidationResult,
     EditorType,
-    ConfigUpdateCallback
+    ConfigUpdateCallback,
+    JumpMode
 } from './types';
 
 /**
@@ -140,6 +141,7 @@ export class ConfigManager {
                 path: editorConfig.path,
                 isDefault: shouldBeDefault,
                 type: editorConfig.type || this.detectEditorType(editorConfig.path),
+                jumpMode: editorConfig.jumpMode || JumpMode.IDEA,
                 createdAt: Date.now(),
                 updatedAt: Date.now()
             };

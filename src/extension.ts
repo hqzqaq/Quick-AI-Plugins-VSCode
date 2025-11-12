@@ -236,6 +236,14 @@ export class QuickAIExtension {
      */
     private async initializeCache(): Promise<void> {
         try {
+            // 检查环境变量是否需要清除缓存
+            const shouldClearCache = process.env.QUICKAI_CLEAR_CACHE === 'true';
+            if (shouldClearCache) {
+                this.logger.info('检测到清除缓存标志，正在清除所有缓存...');
+                await this.cacheManager.clear();
+                this.logger.info('缓存清除完成');
+            }
+            
             if (!this.configManager.isCacheEnabled()) {
                 this.logger.info('缓存已禁用');
                 return;

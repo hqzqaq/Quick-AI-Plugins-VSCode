@@ -171,6 +171,11 @@
                         </h3>
                     </div>
                     <div class="editor-path">${editor.path}</div>
+            <div class="jump-mode-info">
+                <small style="color: var(--vscode-input-placeholderForeground);">
+                    跳转模式: ${editor.jumpMode === 'vscode' ? 'VS Code模式' : 'IDEA模式'}
+                </small>
+            </div>
                     <div class="editor-actions">
                         <button class="btn btn-secondary" data-action="editEditor" data-editor-id="${editor.id}">编辑</button>
                         <button class="btn" data-action="testEditor" data-editor-id="${editor.id}">测试</button>
@@ -185,12 +190,19 @@
                             <input type="text" class="form-input" id="edit-name-${editor.id}" value="${editor.name}">
                         </div>
                         <div class="form-group">
-                            <label>编辑器路径:</label>
-                            <div class="path-group">
-                                <input type="text" class="form-input" id="edit-path-${editor.id}" value="${editor.path}">
-                                <button class="btn" data-action="selectEditPath" data-editor-id="${editor.id}">浏览</button>
-                            </div>
-                        </div>
+                <label>编辑器路径:</label>
+                <div class="path-group">
+                    <input type="text" class="form-input" id="edit-path-${editor.id}" value="${editor.path}">
+                    <button class="btn" data-action="selectEditPath" data-editor-id="${editor.id}">浏览</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>跳转模式:</label>
+                <select class="form-input" id="edit-jumpMode-${editor.id}">
+                    <option value="idea" ${editor.jumpMode === 'idea' ? 'selected' : ''}>IDEA模式</option>
+                    <option value="vscode" ${editor.jumpMode === 'vscode' ? 'selected' : ''}>VS Code模式</option>
+                </select>
+            </div>
                         <div class="editor-actions">
                             <button class="btn" data-action="saveEditor" data-editor-id="${editor.id}">保存</button>
                             <button class="btn btn-secondary" data-action="cancelEdit" data-editor-id="${editor.id}">取消</button>
@@ -211,6 +223,7 @@
     async function addEditor() {
         const name = document.getElementById('editorName').value.trim();
         const path = document.getElementById('editorPath').value.trim();
+        const jumpMode = document.getElementById('jumpMode').value;
         const isDefault = document.getElementById('isDefault').checked;
         
         if (!name || !path) {
@@ -219,12 +232,13 @@
         }
 
         try {
-            await sendMessage('addEditor', { name, path, isDefault });
+            await sendMessage('addEditor', { name, path, jumpMode, isDefault });
             showMessage('编辑器添加成功！', 'success');
             
             // 清空表单
             document.getElementById('editorName').value = '';
             document.getElementById('editorPath').value = '';
+            document.getElementById('jumpMode').value = 'idea';
             document.getElementById('isDefault').checked = false;
             
             // 重新加载编辑器列表
@@ -278,28 +292,29 @@
     }
 
     /**
-     * 保存编辑器
-     */
-    async function saveEditor(editorId) {
-        const name = document.getElementById(`edit-name-${editorId}`).value.trim();
-        const path = document.getElementById(`edit-path-${editorId}`).value.trim();
-        
-        if (!name || !path) {
-            showMessage('请填写完整的编辑器信息', 'error');
-            return;
-        }
+ * 保存编辑器
+ */
+async function saveEditor(editorId) {
+    const name = document.getElementById(`edit-name-${editorId}`).value.trim();
+    const path = document.getElementById(`edit-path-${editorId}`).value.trim();
+    const jumpMode = document.getElementById(`edit-jumpMode-${editorId}`).value;
 
-        try {
-            await sendMessage('updateEditor', {
-                editorId,
-                updates: { name, path }
-            });
-            showMessage('编辑器信息已保存', 'success');
-            await loadEditors();
-        } catch (error) {
-            showMessage('保存编辑器失败: ' + error.message, 'error');
-        }
+    if (!name || !path) {
+        showMessage('请填写完整的编辑器信息', 'error');
+        return;
     }
+
+    try {
+        await sendMessage('updateEditor', {
+            editorId,
+            updates: { name, path, jumpMode }
+        });
+        showMessage('编辑器信息已保存', 'success');
+        await loadEditors();
+    } catch (error) {
+        showMessage('保存编辑器失败: ' + error.message, 'error');
+    }
+}
 
     /**
      * 取消编辑
