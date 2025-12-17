@@ -91,17 +91,35 @@ export class WebViewManager {
                         }
                         break;
                     case 'selectEditorPath':
-                        const fileResult = await vscode.window.showOpenDialog({
+                        const platform = process.platform;
+                        
+                        // 根据不同操作系统设置默认文件类型和过滤器
+                        let openDialogOptions: vscode.OpenDialogOptions = {
                             canSelectFiles: true,
                             canSelectFolders: false,
                             canSelectMany: false,
-                            openLabel: '选择编辑器',
-                            filters: {
-                                '所有文件': ['*'],
-                                '应用程序': ['app'],
-                                '可执行文件': ['exe', 'cmd', 'bat', 'sh']
-                            }
-                        });
+                            openLabel: '选择编辑器'
+                        };
+                        
+                        // 动态设置过滤器，优先显示当前平台的可执行文件
+                        if (platform === 'win32') {
+                            openDialogOptions.filters = {
+                                'Windows可执行文件': ['exe'],
+                                '所有文件': ['*']
+                            };
+                        } else if (platform === 'darwin') {
+                            openDialogOptions.filters = {
+                                'macOS应用程序': ['app'],
+                                '所有文件': ['*']
+                            };
+                        } else {
+                            openDialogOptions.filters = {
+                                'Unix可执行文件': ['sh'],
+                                '所有文件': ['*']
+                            };
+                        }
+                        
+                        const fileResult = await vscode.window.showOpenDialog(openDialogOptions);
                         
                         if (fileResult && fileResult[0]) {
                             let selectedPath = fileResult[0].fsPath;

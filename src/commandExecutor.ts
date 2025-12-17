@@ -270,7 +270,10 @@ export class CommandExecutor {
                         pid: childProcess.pid, 
                         command 
                     });
-                    resolve({ processId: childProcess.pid });
+                    // 添加延迟确保命令执行成功
+                    setTimeout(() => {
+                        resolve({ processId: childProcess.pid });
+                    }, 500);
                 });
 
                 childProcess.on('error', (error) => {
@@ -288,12 +291,7 @@ export class CommandExecutor {
                     });
                 });
 
-                // 对于Windows平台，立即resolve
-                if (this.platformInfo.isWindows) {
-                    setTimeout(() => {
-                        resolve({ processId: childProcess.pid });
-                    }, 100);
-                }
+
 
             } catch (error) {
                 this.logError('执行命令异常', error as Error, { command });
@@ -368,17 +366,12 @@ export class CommandExecutor {
             const editorPath = this.escapeUnixPath(params.editor.path);
             const filePath = this.escapeUnixPath(params.filePath);
             const projectPath = this.escapeUnixPath(params.projectRoot);
-            
             const baseCommand = this.buildCommandByMode(params.editor.jumpMode, editorPath, filePath, projectPath, params.lineNumber, params.columnNumber, true);
-            
-            // 对于VS Code，使用open命令时不添加nohup包装
-            if (baseCommand.trim().startsWith('open ')) {
-                return baseCommand;
-            }
             
             const timestamp = Date.now();
             const logFile = `/tmp/vscode-jump-${timestamp}.log`;
             return `nohup ${baseCommand} > ${logFile} 2>&1 & echo "日志保存在: ${logFile}"`;
+            // return baseCommand;
         });
 
         // Linux命令构建器
@@ -439,13 +432,13 @@ export class CommandExecutor {
             // IDEA模式：<编辑器路径> <文件路径> --line <行号>
             const editor = needQuotes ? `"${editorPath}"` : editorPath;
             const file = needQuotes ? `"${filePath}"` : filePath;
-            return `${editor} ${file} --line ${lineNumber}`;
+            return `${editor} --line ${lineNumber} --column ${column} ${file} `;
         }
     }
     
     /**
      * 构建macOS平台上的VS Code命令
-     * 在macOS上，使用open命令启动VS Code应用程序
+     * 使用Electron路径
      * @param editorPath 编辑器路径
      * @param filePath 文件路径
      * @param projectPath 项目路径
@@ -456,38 +449,24 @@ export class CommandExecutor {
     private buildMacOSVSCodeCommand(
         editorPath: string,
         filePath: string,
-        _projectPath: string,
+        projectPath: string,
         lineNumber: number,
         columnNumber: number
     ): string {
-        // 根据测试结果，使用正确的Electron参数格式
-        // 直接传递-g参数定位到指定文件位置，不使用--args
-        return `"${editorPath}" "${_projectPath}" -g "${filePath}:${lineNumber}:${columnNumber}"`;
+        return `"${editorPath}" "${projectPath}" -g "${filePath}:${lineNumber}:${columnNumber}"`;
     }
 
-    /**
-     * 转义Windows路径
-     * @param filePath 文件路径
-     * @returns 转义后的路径
-     */
+    /** 转义Windows路径 */
     private escapeWindowsPath(filePath: string): string {
         return filePath.replace(/\\/g, '\\\\');
     }
 
-    /**
-     * 转义Unix路径
-     * @param filePath 文件路径
-     * @returns 转义后的路径
-     */
+    /** 转义Unix路径 */
     private escapeUnixPath(filePath: string): string {
         return filePath.replace(/'/g, "'\"'\"'");
     }
 
-    /**
-     * 验证执行参数
-     * @param params 执行参数
-     * @returns 验证结果
-     */
+    /** 验证执行参数 */
     private validateExecutionParams(params: CommandExecutionParams): { success: boolean; error?: string } {
         if (!params.editor) {
             return { success: false, error: '编辑器配置不能为空' };
@@ -508,20 +487,12 @@ export class CommandExecutor {
         return { success: true };
     }
 
-    /**
-     * 生成命令缓存键
-     * @param params 执行参数
-     * @returns 缓存键
-     */
+    /** 生成命令缓存键 */
     private generateCommandCacheKey(params: CommandExecutionParams): string {
         return `command:${params.editor.id}:${this.platformInfo.platform}`;
     }
 
-    /**
-     * 更新执行统计信息
-     * @param success 是否成功
-     * @param executionTime 执行时间
-     */
+    /** 更新执行统计信息 */
     private updateExecutionStats(success: boolean, executionTime: number): void {
         if (success) {
             this.executionStats.successfulExecutions++;
@@ -534,41 +505,27 @@ export class CommandExecutor {
             this.executionStats.totalExecutionTime / this.executionStats.totalExecutions;
     }
 
-    /**
-     * 设置错误处理器
-     * @param handler 错误处理器函数
-     */
+    /** 设置错误处理器 */
     public setErrorHandler(handler: ErrorHandler): void {
         this.errorHandler = handler;
     }
 
-    /**
-     * 获取执行统计信息
-     * @returns 执行统计信息
-     */
+    /** 获取执行统计信息 */
     public getExecutionStats() {
         return { ...this.executionStats };
     }
 
-    /**
-     * 获取平台信息
-     * @returns 平台信息
-     */
+    /** 获取平台信息 */
     public getPlatformInfo(): PlatformInfo {
         return { ...this.platformInfo };
     }
 
-    /**
-     * 获取正在运行的进程数量
-     * @returns 进程数量
-     */
+    /** 获取正在运行的进程数量 */
     public getRunningProcessCount(): number {
         return this.runningProcesses.size;
     }
 
-    /**
-     * 终止所有正在运行的进程
-     */
+    /** 终止所有正在运行的进程 */
     public killAllProcesses(): void {
         for (const [_key, process] of this.runningProcesses) {
             try {
@@ -583,9 +540,7 @@ export class CommandExecutor {
         this.runningProcesses.clear();
     }
 
-    /**
-     * 重置执行统计
-     */
+    /** 重置执行统计 */
     public resetExecutionStats(): void {
         this.executionStats.totalExecutions = 0;
         this.executionStats.successfulExecutions = 0;
@@ -595,49 +550,29 @@ export class CommandExecutor {
         this.logInfo('执行统计已重置');
     }
 
-    /**
-     * 添加自定义命令构建器
-     * @param platform 平台标识
-     * @param builder 命令构建器函数
-     */
+    /** 添加自定义命令构建器 */
     public addCommandBuilder(platform: string, builder: CommandBuilder): void {
         this.commandBuilders.set(platform, builder);
         this.logInfo('添加自定义命令构建器', { platform });
     }
 
-    /**
-     * 移除命令构建器
-     * @param platform 平台标识
-     */
+    /** 移除命令构建器 */
     public removeCommandBuilder(platform: string): void {
         this.commandBuilders.delete(platform);
         this.logInfo('移除命令构建器', { platform });
     }
 
-    /**
-     * 记录调试日志
-     * @param message 日志消息
-     * @param data 额外数据
-     */
+    /** 记录调试日志 */
     private logDebug(message: string, data?: any): void {
         console.debug(`[QuickAI:CommandExecutor] ${message}`, data);
     }
 
-    /**
-     * 记录信息日志
-     * @param message 日志消息
-     * @param data 额外数据
-     */
+    /** 记录信息日志 */
     private logInfo(message: string, data?: any): void {
         console.log(`[QuickAI:CommandExecutor] ${message}`, data);
     }
 
-    /**
-     * 记录错误日志
-     * @param message 错误消息
-     * @param error 错误对象
-     * @param context 上下文信息
-     */
+    /** 记录错误日志 */
     private logError(message: string, error: Error, context?: any): void {
         console.error(`[QuickAI:CommandExecutor] ${message}`, {
             error: error.message,
@@ -646,9 +581,7 @@ export class CommandExecutor {
         });
     }
 
-    /**
-     * 销毁命令执行器
-     */
+    /** 销毁命令执行器 */
     public dispose(): void {
         this.killAllProcesses();
         this.commandBuilders.clear();
@@ -656,10 +589,7 @@ export class CommandExecutor {
     }
 }
 
-/**
- * 命令执行工厂类
- * 提供不同类型的命令执行器实例
- */
+/** 命令执行工厂类 */
 export class CommandExecutorFactory {
     /** 执行器实例缓存 */
     private static instances: Map<string, CommandExecutor> = new Map();
@@ -679,9 +609,7 @@ export class CommandExecutorFactory {
         return CommandExecutorFactory.instances.get(type)!;
     }
 
-    /**
-     * 销毁所有执行器实例
-     */
+    /** 销毁所有执行器实例 */
     public static disposeAll(): void {
         for (const [_type, executor] of CommandExecutorFactory.instances) {
             executor.dispose();
@@ -690,10 +618,7 @@ export class CommandExecutorFactory {
     }
 }
 
-/**
- * 命令执行器构建器
- * 提供流式API来配置和创建命令执行器
- */
+/** 命令执行器构建器 */
 export class CommandExecutorBuilder {
     private cacheManager: CacheManager | undefined;
     private errorHandler: ErrorHandler | undefined;
