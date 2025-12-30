@@ -1,6 +1,8 @@
 .vscode/**
 .vscode-test/**
 src/**
+!src/webview/editor-manager.html
+!src/webview/editor-manager.js
 .gitignore
 .yarnrc
 vsc-extension-quickstart.md

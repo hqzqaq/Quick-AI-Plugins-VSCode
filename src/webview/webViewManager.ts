@@ -187,58 +187,28 @@ export class WebViewManager {
             }
 
             const infoPlistPath = path.join(appPath, 'Contents', 'Info.plist');
-            const macOSDir = path.join(appPath, 'Contents', 'MacOS');
+            // Contents/Resources/app/bin/code
+            const parentPath = path.join(appPath, 'Contents', 'Resources', 'app', 'bin');
 
-            if (!fs.existsSync(infoPlistPath) || !fs.existsSync(macOSDir)) {
-                this.logger.warn('应用包结构不完整，找不到Info.plist或MacOS目录', { appPath });
-                return appPath; // Return original path
-            }
+            const macOSExecutable = path.join(appPath, 'Contents', 'Resources', 'app', 'bin', 'code');
 
-            // 1. Read Info.plist to find the executable name
-            try {
-                const plistContent = fs.readFileSync(infoPlistPath, 'utf8');
-                const match = /<key>CFBundleExecutable<\/key>\s*<string>([^<]+)<\/string>/.exec(plistContent);
-                
-                if (match && match[1]) {
-                    const executableName = match[1];
-                    const executablePath = path.join(macOSDir, executableName);
-                    
-                    if (fs.existsSync(executablePath)) {
-                        const stats = fs.statSync(executablePath);
-                        if (stats.isFile() && (stats.mode & parseInt('111', 8))) { // Check execute permission
-                            this.logger.info('通过Info.plist找到可执行文件', { appPath, executablePath });
-                            return executablePath;
-                        }
+            if (!fs.existsSync(infoPlistPath) || !fs.existsSync(macOSExecutable)) {
+                this.logger.warn('应用包结构不完整，找不到Info.plist或可执行文件', { appPath });
+                // 使用 parentPath 下找到的第一个文件
+                if (fs.existsSync(parentPath)) {
+                    const files = fs.readdirSync(parentPath);
+                    const firstFile = files[0];
+                    if (firstFile) {
+                        return path.join(parentPath, firstFile);
                     }
                 }
-            } catch (plistError) {
-                this.logger.error('读取或解析Info.plist失败', plistError as Error, { appPath });
-                // Fallback to old method if plist parsing fails
+                return null; // Return null if not found
             }
 
-            // 2. Fallback: if Info.plist fails, scan the MacOS directory
-            this.logger.info('Info.plist解析失败或未找到可执行文件，回退到扫描MacOS目录', { appPath });
-            const files = fs.readdirSync(macOSDir);
-            for (const file of files) {
-                const filePath = path.join(macOSDir, file);
-                try {
-                    const stats = fs.statSync(filePath);
-                    // Pick the first file that is executable and not a directory
-                    if (stats.isFile() && (stats.mode & parseInt('111', 8))) {
-                        this.logger.info('在MacOS目录中找到一个可执行文件作为回退选项', { filePath });
-                        return filePath;
-                    }
-                } catch(statError) {
-                    this.logger.warn('无法获取文件状态', { filePath, error: statError });
-                }
-            }
-
-            this.logger.warn('在macOS应用包中未找到任何可执行文件', { appPath, macOSDir, files });
-            return appPath; // Return original .app path if nothing found
-            
+            return macOSExecutable; // Return executable path if found
         } catch (error) {
             this.logger.error('处理macOS应用包路径失败', error as Error, { appPath });
-            return appPath; // On error, return original path
+            return null; // On error, return null
         }
     }
 
