@@ -356,10 +356,14 @@ async function saveEditor(editorId) {
                 // 如果在编辑器列表中，则设置到对应的编辑框
                 const activeEditorId = document.querySelector('.editor-edit-form[style*="block"]')?.id?.replace('edit-form-', '');
                 if (activeEditorId) {
-                    document.getElementById(`edit-path-${activeEditorId}`).value = result.path;
+                    const inputEl = document.getElementById(`edit-path-${activeEditorId}`);
+                    inputEl.value = result.path;
+                    updatePathInputVisual(inputEl, true);
                     showMessage('编辑器路径已更新', 'success');
                 } else {
-                    document.getElementById('editorPath').value = result.path;
+                    const inputEl = document.getElementById('editorPath');
+                    inputEl.value = result.path;
+                    updatePathInputVisual(inputEl, true);
                     showMessage('编辑器路径已设置', 'success');
                 }
             } else {
@@ -367,6 +371,29 @@ async function saveEditor(editorId) {
             }
         } catch (error) {
             showMessage('选择路径失败: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * 更新路径输入框的视觉状态
+     * @param {HTMLElement} inputEl 输入框元素
+     * @param {boolean} hasPath 是否有路径
+     */
+    function updatePathInputVisual(inputEl, hasPath) {
+        const wrapper = inputEl.closest('.path-input-wrapper');
+        if (wrapper) {
+            const statusIcon = wrapper.querySelector('.path-status-icon');
+            if (hasPath) {
+                inputEl.classList.add('has-path');
+                if (statusIcon) {
+                    statusIcon.classList.add('visible');
+                }
+            } else {
+                inputEl.classList.remove('has-path');
+                if (statusIcon) {
+                    statusIcon.classList.remove('visible');
+                }
+            }
         }
     }
 

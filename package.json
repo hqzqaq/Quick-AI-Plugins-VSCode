@@ -2,7 +2,7 @@
   "name": "quickai",
   "displayName": "QuickAI",
   "description": "无缝连接VS Code与Jetbrains IDE，通过可自定义快捷键快速跳转到相同文件位置",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "publisher": "hqzqaq",
   "engines": {
     "vscode": "^1.70.0"
@@ -21,7 +21,8 @@
     "commands": [
       {
         "command": "quickai.openEditorManager",
-        "title": "QuickAI: 管理外部编辑器"
+        "title": "管理外部编辑器",
+        "icon": "$(rocket)"
       },
       {
         "command": "quickai.jumpToExternalEditor",
@@ -30,8 +31,87 @@
       {
         "command": "quickai.triggerWithShortcut",
         "title": "QuickAI: 快捷键触发跳转"
+      },
+      {
+        "command": "quickai.refreshSidebar",
+        "title": "刷新",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "quickai.sidebar.addEditor",
+        "title": "添加编辑器",
+        "icon": "$(add)"
+      },
+      {
+        "command": "quickai.sidebar.setDefaultEditor",
+        "title": "设为默认",
+        "icon": "$(star-full)"
+      },
+      {
+        "command": "quickai.sidebar.deleteEditor",
+        "title": "删除",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "quickai.sidebar.testEditor",
+        "title": "测试编辑器",
+        "icon": "$(play)"
+      },
+      {
+        "command": "quickai.sidebar.editEditor",
+        "title": "编辑",
+        "icon": "$(edit)"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "quickai-sidebar",
+          "title": "QuickAI",
+          "icon": "$(rocket)"
+        }
+      ]
+    },
+    "views": {
+      "quickai-sidebar": [
+        {
+          "id": "quickai.menu",
+          "name": "菜单",
+          "when": "true"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "quickai.refreshSidebar",
+          "when": "view == quickai.menu",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "quickai.sidebar.setDefaultEditor",
+          "when": "view == quickai.menu && viewItem == quickai-editor-item",
+          "group": "inline@1"
+        },
+        {
+          "command": "quickai.sidebar.testEditor",
+          "when": "view == quickai.menu && viewItem =~ /(quickai-editor-item|quickai-default-editor)/",
+          "group": "inline@2"
+        },
+        {
+          "command": "quickai.sidebar.editEditor",
+          "when": "view == quickai.menu && viewItem =~ /(quickai-editor-item|quickai-default-editor)/",
+          "group": "1_editor@1"
+        },
+        {
+          "command": "quickai.sidebar.deleteEditor",
+          "when": "view == quickai.menu && viewItem =~ /(quickai-editor-item|quickai-default-editor)/",
+          "group": "1_editor@2"
+        }
+      ]
+    },
     "keybindings": [
         {
           "command": "quickai.triggerWithShortcut",

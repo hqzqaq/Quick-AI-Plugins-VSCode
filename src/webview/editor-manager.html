@@ -112,6 +112,74 @@
             transform: translateY(0);
         }
 
+        .btn-browse {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, var(--vscode-button-background) 0%, var(--vscode-button-hoverBackground) 100%);
+            border: 1px solid var(--vscode-button-background);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-browse:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .btn-browse .icon {
+            font-size: 16px;
+        }
+
+        .path-input-wrapper {
+            position: relative;
+            flex: 1;
+        }
+
+        .path-input-wrapper .form-input {
+            padding-right: 40px;
+            transition: all 0.3s ease;
+        }
+
+        .path-input-wrapper .form-input.has-path {
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.05);
+        }
+
+        .path-status-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 16px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .path-status-icon.visible {
+            opacity: 1;
+        }
+
+        .file-select-area {
+            border: 2px dashed var(--vscode-widget-border);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            background: rgba(0, 0, 0, 0.02);
+        }
+
+        .file-select-area:hover {
+            border-color: var(--vscode-button-background);
+            background: rgba(0, 120, 212, 0.05);
+        }
+
+        .file-select-area.has-file {
+            border-style: solid;
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.05);
+        }
+
         .btn-danger {
             background: var(--vscode-errorForeground);
             color: white;
@@ -304,8 +372,14 @@
             <div class="form-group">
                 <label for="editorPath">编辑器路径</label>
                 <div class="path-group">
-                    <input type="text" id="editorPath" class="form-input" placeholder="编辑器可执行文件路径">
-                    <button class="btn" data-action="selectPath">浏览</button>
+                    <div class="path-input-wrapper">
+                        <input type="text" id="editorPath" class="form-input" placeholder="点击右侧按钮选择编辑器可执行文件">
+                        <span class="path-status-icon" id="pathStatusIcon">✓</span>
+                    </div>
+                    <button class="btn btn-browse" data-action="selectPath">
+                        <span class="icon">📂</span>
+                        <span>浏览</span>
+                    </button>
                 </div>
             </div>
             <div class="form-group">

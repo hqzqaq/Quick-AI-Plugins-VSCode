@@ -23,6 +23,7 @@ import {
     PerformanceMonitor,
     MemoryMonitor
 } from './utils';
+import { QuickAISidebarProvider } from './sidebarProvider';
 
 // 创建全局实例
 const globalLogger = new Logger('QuickAI');
@@ -48,6 +49,9 @@ export class QuickAIExtension {
 
     /** WebView管理器实例 */
     private webViewManager!: WebViewManager;
+
+    /** 侧边栏提供器实例 */
+    private sidebarProvider!: QuickAISidebarProvider;
 
     /** 日志记录器 */
     private logger = globalLogger;
@@ -196,6 +200,11 @@ export class QuickAIExtension {
                 this.webViewManager = new WebViewManager(this.context, this.configManager, this.commandExecutor);
             }
 
+            // 初始化侧边栏提供器
+            if (!this.sidebarProvider && this.context) {
+                this.sidebarProvider = new QuickAISidebarProvider(this.context, this.configManager, this.commandExecutor);
+            }
+
             this.logger.info('插件初始化完成');
 
         } catch (error) {
@@ -297,15 +306,54 @@ export class QuickAIExtension {
                 await this.showDiagnostics();
             });
 
+            // 注册刷新侧边栏命令
+            const refreshSidebarCommand = vscode.commands.registerCommand('quickai.refreshSidebar', async () => {
+                this.sidebarProvider?.refresh();
+            });
+
+            // 注册侧边栏专用命令
+            const sidebarAddEditorCommand = vscode.commands.registerCommand('quickai.sidebar.addEditor', async () => {
+                await this.sidebarProvider?.addEditor();
+            });
+
+            const sidebarSetDefaultCommand = vscode.commands.registerCommand('quickai.sidebar.setDefaultEditor', async (editorId: string) => {
+                await this.sidebarProvider?.setDefaultEditor(editorId);
+            });
+
+            const sidebarDeleteEditorCommand = vscode.commands.registerCommand('quickai.sidebar.deleteEditor', async (editorId: string) => {
+                await this.sidebarProvider?.deleteEditor(editorId);
+            });
+
+            const sidebarTestEditorCommand = vscode.commands.registerCommand('quickai.sidebar.testEditor', async (editorId: string) => {
+                await this.sidebarProvider?.testEditor(editorId);
+            });
+
+            const sidebarEditEditorCommand = vscode.commands.registerCommand('quickai.sidebar.editEditor', async (editorId: string) => {
+                await this.sidebarProvider?.editEditor(editorId);
+            });
+
             // 注册动态快捷键命令（根据配置的修饰键组合）
             this.registerDynamicKeyboardShortcut();
+
+            // 注册侧边栏TreeView
+            const treeView = vscode.window.createTreeView('quickai.menu', {
+                treeDataProvider: this.sidebarProvider,
+                showCollapseAll: false
+            });
 
             // 将命令添加到VS Code订阅中
             this.context.subscriptions.push(
                 jumpCommand,
                 editorManagerCommand,
                 testEditorCommand,
-                diagnosticsCommand
+                diagnosticsCommand,
+                refreshSidebarCommand,
+                sidebarAddEditorCommand,
+                sidebarSetDefaultCommand,
+                sidebarDeleteEditorCommand,
+                sidebarTestEditorCommand,
+                sidebarEditEditorCommand,
+                treeView
             );
 
             // 同时添加到内部一次性资源（用于内部清理）
@@ -313,7 +361,14 @@ export class QuickAIExtension {
                 jumpCommand,
                 editorManagerCommand,
                 testEditorCommand,
-                diagnosticsCommand
+                diagnosticsCommand,
+                refreshSidebarCommand,
+                sidebarAddEditorCommand,
+                sidebarSetDefaultCommand,
+                sidebarDeleteEditorCommand,
+                sidebarTestEditorCommand,
+                sidebarEditEditorCommand,
+                treeView
             );
 
             this.logger.info('命令注册完成', {
