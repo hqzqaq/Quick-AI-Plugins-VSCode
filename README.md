@@ -1,9 +1,11 @@
 # QuickAI - VS Code 插件
 
+中文 | [English](README-en.md)
+
 这是一个 VS Code 插件，旨在无缝连接您的AI 辅助编辑器（如 VS Code、Cursor、Kiro 等）与Jetbrains IDE （如 IntelliJ IDEA、PyCharm、WebStorm等）。它允许用户通过可自定义的快捷键或修饰键+鼠标点击，从 VS Code 的代码位置快速跳转到Jetbrains IDE编辑器中的完全相同的位置，从而极大地提升在不同工具间切换的开发效率。
 
 **作者**: hqzqaq  
-**当前版本**: v1.0.0  
+**当前版本**: v1.0.4  
 **支持平台**: Windows, macOS, Linux  
 **许可证**: MIT License
 
@@ -362,11 +364,27 @@ A: 支持所有支持 `--line` 命令行参数的 Jetbrains IDE，包括但不�
 
 如有问题或建议：
 - **作者**：hqzqaq
-- **版本**：v1.0.0
+- **版本**：v1.0.4
 - **许可**：MIT License
 - **GitHub**：https://github.com/hqzqaq/Quick-AI-Plugins-VSCode
 - **问题反馈**：https://github.com/hqzqaq/Quick-AI-Plugins-VSCode/issues
 - **联系作者**：1161028135@qq.com
+
+---
+
+## 📝 版本更新日志
+
+### v1.0.4 (2026-04-05)
+- 🐛 修复已知问题
+- ⚡ 优化性能表现
+- 🌐 新增英文文档支持
+- 🔗 新增中英文文档互链
+
+### v1.0.0
+- 🎉 初始版本发布
+- ✨ 核心跨平台跳转功能
+- 🎯 多编辑器配置支持
+- ⚡ 缓存与防抖性能优化
 
 ---
 
